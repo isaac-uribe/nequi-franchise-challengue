@@ -1,60 +1,78 @@
 package co.com.bancolombia.api;
 
-import org.assertj.core.api.Assertions;
+import co.com.bancolombia.api.dto.CreateFranchiseRequest;
+import co.com.bancolombia.api.health.HealthHandler;
+import co.com.bancolombia.model.aggregate.Franchise;
+import co.com.bancolombia.usecase.branch.AddBranchUseCase;
+import co.com.bancolombia.usecase.branch.RenameBranchUseCase;
+import co.com.bancolombia.usecase.franchise.CreateFranchiseUseCase;
+import co.com.bancolombia.usecase.franchise.RenameFranchiseUseCase;
+import co.com.bancolombia.usecase.product.AddProductUseCase;
+import co.com.bancolombia.usecase.product.GetTopStockProductByBranchUseCase;
+import co.com.bancolombia.usecase.product.ModifyStockUseCase;
+import co.com.bancolombia.usecase.product.RemoveProductUseCase;
+import co.com.bancolombia.usecase.product.RenameProductUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
-@ContextConfiguration(classes = {RouterRest.class, Handler.class})
+import static org.mockito.Mockito.when;
+
+@ContextConfiguration(classes = {RouterRest.class, Handler.class, HealthHandler.class})
 @WebFluxTest
 class RouterRestTest {
 
     @Autowired
     private WebTestClient webTestClient;
 
+    @MockitoBean
+    private CreateFranchiseUseCase createFranchiseUseCase;
+    @MockitoBean
+    private RenameFranchiseUseCase renameFranchiseUseCase;
+    @MockitoBean
+    private AddBranchUseCase addBranchUseCase;
+    @MockitoBean
+    private RenameBranchUseCase renameBranchUseCase;
+    @MockitoBean
+    private AddProductUseCase addProductUseCase;
+    @MockitoBean
+    private RemoveProductUseCase removeProductUseCase;
+    @MockitoBean
+    private ModifyStockUseCase modifyStockUseCase;
+    @MockitoBean
+    private RenameProductUseCase renameProductUseCase;
+    @MockitoBean
+    private GetTopStockProductByBranchUseCase getTopStockProductByBranchUseCase;
+
     @Test
-    void testListenGETUseCase() {
+    void testHealthRouteIsWired() {
         webTestClient.get()
-                .uri("/api/usecase/path")
-                .accept(MediaType.APPLICATION_JSON)
+                .uri("/api/health")
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class)
-                .value(userResponse -> {
-                            Assertions.assertThat(userResponse).isEmpty();
-                        }
-                );
+                .expectStatus().isOk();
     }
 
     @Test
-    void testListenGETOtherUseCase() {
-        webTestClient.get()
-                .uri("/api/otherusercase/path")
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class)
-                .value(userResponse -> {
-                            Assertions.assertThat(userResponse).isEmpty();
-                        }
-                );
-    }
+    void testCreateFranchiseRouteIsWired() {
+        Franchise franchise = Franchise.builder().id("franchise-1").name("Juan Valdez").build();
+        when(createFranchiseUseCase.createFranchise("Juan Valdez")).thenReturn(Mono.just(franchise));
 
-    @Test
-    void testListenPOSTUseCase() {
         webTestClient.post()
-                .uri("/api/usecase/otherpath")
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue("")
+                .uri("/api/franchises")
+                .bodyValue(new CreateFranchiseRequest("Juan Valdez"))
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class)
-                .value(userResponse -> {
-                            Assertions.assertThat(userResponse).isEmpty();
-                        }
-                );
+                .expectStatus().isCreated();
+    }
+
+    @Test
+    void testUnknownRouteReturnsNotFound() {
+        webTestClient.get()
+                .uri("/api/unknown/path")
+                .exchange()
+                .expectStatus().isNotFound();
     }
 }
