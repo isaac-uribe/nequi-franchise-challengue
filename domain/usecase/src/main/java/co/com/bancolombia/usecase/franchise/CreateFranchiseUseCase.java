@@ -1,4 +1,4 @@
-package co.com.bancolombia.usecase;
+package co.com.bancolombia.usecase.franchise;
 
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
