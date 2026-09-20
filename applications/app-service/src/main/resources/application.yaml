@@ -11,6 +11,9 @@ spring:
       path: "/h2"
   profiles:
     include: null
+  data:
+    mongodb:
+      uri: "mongodb://localhost:27017/test"
 management:
   endpoints:
     web:
@@ -22,3 +25,6 @@ management:
         enabled: true
 cors:
   allowed-origins: "http://localhost:4200,http://localhost:8080"
+aws:
+  region: "us-east-1"
+  secretName: "my-secret"
