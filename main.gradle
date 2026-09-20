@@ -21,6 +21,10 @@ subprojects {
         }
     }
 
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs << "-parameters"
+    }
+
     //build.dependsOn 'pitest'
 
     test {
