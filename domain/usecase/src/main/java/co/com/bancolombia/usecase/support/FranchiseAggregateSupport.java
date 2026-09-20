@@ -3,7 +3,7 @@ package co.com.bancolombia.usecase.support;
 import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
-import co.com.bancolombia.model.exception.BusinessException;
+import co.com.bancolombia.model.exception.NotFoundException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -19,14 +19,14 @@ public final class FranchiseAggregateSupport {
         return Flux.fromIterable(franchise.getBranches())
                 .filter(branch -> branch.getId().equals(branchId))
                 .next()
-                .switchIfEmpty(Mono.error(new BusinessException("Branch not found: " + branchId)));
+                .switchIfEmpty(Mono.error(new NotFoundException("Branch not found: " + branchId)));
     }
 
     public static Mono<Product> findProduct(Branch branch, String productId) {
         return Flux.fromIterable(branch.getProducts())
                 .filter(product -> product.getId().equals(productId))
                 .next()
-                .switchIfEmpty(Mono.error(new BusinessException("Product not found: " + productId)));
+                .switchIfEmpty(Mono.error(new NotFoundException("Product not found: " + productId)));
     }
 
     public static Franchise replaceBranch(Franchise franchise, String branchId, Branch updatedBranch) {

@@ -4,6 +4,7 @@ import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
+import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class AddProductUseCase {
                                 .stock(validStock)
                                 .build()))
                 .flatMap(product -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new BusinessException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> addProductToBranch(franchise, branchId, product)))
                 .flatMap(franchiseRepository::save);
     }

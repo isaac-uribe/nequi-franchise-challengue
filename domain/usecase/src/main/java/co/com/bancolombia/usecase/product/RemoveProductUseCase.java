@@ -3,7 +3,7 @@ package co.com.bancolombia.usecase.product;
 import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
-import co.com.bancolombia.model.exception.BusinessException;
+import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ public class RemoveProductUseCase {
 
     public Mono<Franchise> removeProduct(String franchiseId, String branchId, String productId) {
         return franchiseRepository.findById(franchiseId)
-                .switchIfEmpty(Mono.error(new BusinessException("Franchise not found: " + franchiseId)))
+                .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
                 .flatMap(franchise -> removeProductFromBranch(franchise, branchId, productId))
                 .flatMap(franchiseRepository::save);
     }
