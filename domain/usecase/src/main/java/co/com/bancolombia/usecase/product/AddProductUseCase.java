@@ -5,8 +5,8 @@ import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -36,20 +36,12 @@ public class AddProductUseCase {
     }
 
     private Mono<Franchise> addProductToBranch(Franchise franchise, String branchId, Product product) {
-        return Flux.fromIterable(franchise.getBranches())
-                .filter(branch -> branch.getId().equals(branchId))
-                .next()
-                .switchIfEmpty(Mono.error(new BusinessException("Branch not found: " + branchId)))
+        return FranchiseAggregateSupport.findBranch(franchise, branchId)
                 .map(targetBranch -> {
                     List<Product> updatedProducts = new ArrayList<>(targetBranch.getProducts());
                     updatedProducts.add(product);
                     Branch updatedBranch = targetBranch.toBuilder().products(updatedProducts).build();
-
-                    List<Branch> updatedBranches = new ArrayList<>();
-                    for (Branch branch : franchise.getBranches()) {
-                        updatedBranches.add(branch.getId().equals(branchId) ? updatedBranch : branch);
-                    }
-                    return franchise.toBuilder().branches(updatedBranches).build();
+                    return FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch);
                 });
     }
 }

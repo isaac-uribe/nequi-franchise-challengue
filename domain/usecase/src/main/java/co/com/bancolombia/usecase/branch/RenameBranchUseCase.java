@@ -4,12 +4,9 @@ import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @RequiredArgsConstructor
 public class RenameBranchUseCase {
@@ -27,17 +24,10 @@ public class RenameBranchUseCase {
     }
 
     private Mono<Franchise> renameBranchInFranchise(Franchise franchise, String branchId, String newName) {
-        return Flux.fromIterable(franchise.getBranches())
-                .filter(branch -> branch.getId().equals(branchId))
-                .next()
-                .switchIfEmpty(Mono.error(new BusinessException("Branch not found: " + branchId)))
+        return FranchiseAggregateSupport.findBranch(franchise, branchId)
                 .map(targetBranch -> {
                     Branch renamedBranch = targetBranch.toBuilder().name(newName).build();
-                    List<Branch> updatedBranches = new ArrayList<>();
-                    for (Branch branch : franchise.getBranches()) {
-                        updatedBranches.add(branch.getId().equals(branchId) ? renamedBranch : branch);
-                    }
-                    return franchise.toBuilder().branches(updatedBranches).build();
+                    return FranchiseAggregateSupport.replaceBranch(franchise, branchId, renamedBranch);
                 });
     }
 }

@@ -5,12 +5,9 @@ import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @RequiredArgsConstructor
 public class ModifyStockUseCase {
@@ -28,32 +25,16 @@ public class ModifyStockUseCase {
     }
 
     private Mono<Franchise> updateStock(Franchise franchise, String branchId, String productId, Integer newStock) {
-        return Flux.fromIterable(franchise.getBranches())
-                .filter(branch -> branch.getId().equals(branchId))
-                .next()
-                .switchIfEmpty(Mono.error(new BusinessException("Branch not found: " + branchId)))
-                .flatMap(targetBranch -> Flux.fromIterable(targetBranch.getProducts())
-                        .filter(product -> product.getId().equals(productId))
-                        .next()
-                        .switchIfEmpty(Mono.error(new BusinessException("Product not found: " + productId)))
+        return FranchiseAggregateSupport.findBranch(franchise, branchId)
+                .flatMap(targetBranch -> FranchiseAggregateSupport.findProduct(targetBranch, productId)
                         .map(existingProduct -> replaceStock(franchise, targetBranch, branchId, existingProduct, newStock)));
     }
 
     private Franchise replaceStock(Franchise franchise, Branch targetBranch, String branchId,
                                    Product existingProduct, Integer newStock) {
         Product updatedProduct = existingProduct.toBuilder().stock(newStock).build();
-
-        List<Product> updatedProducts = new ArrayList<>();
-        for (Product product : targetBranch.getProducts()) {
-            updatedProducts.add(product.getId().equals(existingProduct.getId()) ? updatedProduct : product);
-        }
-        Branch updatedBranch = targetBranch.toBuilder().products(updatedProducts).build();
-
-        List<Branch> updatedBranches = new ArrayList<>();
-        for (Branch branch : franchise.getBranches()) {
-            updatedBranches.add(branch.getId().equals(branchId) ? updatedBranch : branch);
-        }
-        return franchise.toBuilder().branches(updatedBranches).build();
+        Branch updatedBranch = FranchiseAggregateSupport.replaceProduct(targetBranch, existingProduct.getId(), updatedProduct);
+        return FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch);
     }
 
 }
