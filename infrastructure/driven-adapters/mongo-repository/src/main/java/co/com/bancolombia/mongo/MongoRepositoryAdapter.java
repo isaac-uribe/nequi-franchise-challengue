@@ -1,6 +1,7 @@
 package co.com.bancolombia.mongo;
 
 import co.com.bancolombia.model.aggregate.Franchise;
+import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.mongo.document.FranchiseDocument;
 import co.com.bancolombia.mongo.helper.AdapterOperations;
 import co.com.bancolombia.mongo.mapper.FranchiseDocumentMapper;
@@ -8,7 +9,8 @@ import org.reactivecommons.utils.ObjectMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class MongoRepositoryAdapter extends AdapterOperations<Franchise, FranchiseDocument, String, MongoDBRepository> {
+public class MongoRepositoryAdapter extends AdapterOperations<Franchise, FranchiseDocument, String, MongoDBRepository>
+        implements FranchiseRepository {
 
 
     private final FranchiseDocumentMapper documentMapper;
