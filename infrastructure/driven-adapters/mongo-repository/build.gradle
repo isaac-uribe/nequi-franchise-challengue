@@ -10,6 +10,11 @@ dependencies {
     annotationProcessor "org.mapstruct:mapstruct-processor:1.6.3"
     annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
 
+    implementation "io.github.resilience4j:resilience4j-reactor:2.4.0"
+    implementation "io.github.resilience4j:resilience4j-circuitbreaker:2.4.0"
+    implementation "io.github.resilience4j:resilience4j-timelimiter:2.4.0"
+    implementation "io.github.resilience4j:resilience4j-retry:2.4.0"
+
     runtimeOnly 'de.flapdoodle.embed:de.flapdoodle.embed.mongo:4.21.0' // TODO: remove this dependency to connect to real database
     testImplementation 'org.reactivecommons.utils:object-mapper:0.1.0'
 }

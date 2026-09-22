@@ -5,6 +5,9 @@ import co.com.bancolombia.mongo.MongoDBRepository;
 import co.com.bancolombia.mongo.MongoRepositoryAdapter;
 import co.com.bancolombia.mongo.document.FranchiseDocument;
 import co.com.bancolombia.mongo.mapper.FranchiseDocumentMapper;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.timelimiter.TimeLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -48,7 +51,8 @@ class AdapterOperationsTest {
         when(documentMapper.toDocument(entity)).thenReturn(document);
         when(documentMapper.toDomain(document)).thenReturn(entity);
 
-        adapter = new MongoRepositoryAdapter(repository, objectMapper, documentMapper);
+        adapter = new MongoRepositoryAdapter(repository, objectMapper, documentMapper,
+                CircuitBreaker.ofDefaults("test"), TimeLimiter.ofDefaults(), Retry.ofDefaults("test"));
     }
 
     @Test
