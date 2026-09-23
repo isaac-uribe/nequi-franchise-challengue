@@ -336,3 +336,8 @@ gradle-app.setting
 build-cache
 
 application-local.yaml
+
+terraform/**/terraform.tfstate
+terraform/**/terraform.tfstate.backup
+terraform/**/.terraform/
+terraform/**/terraform.tfvars
