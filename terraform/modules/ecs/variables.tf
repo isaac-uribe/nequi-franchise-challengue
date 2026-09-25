@@ -47,3 +47,13 @@ variable "desired_count" {
   type    = number
   default = 1
 }
+
+variable "min_capacity" {
+  type    = number
+  default = 1
+}
+
+variable "max_capacity" {
+  type    = number
+  default = 3
+}
