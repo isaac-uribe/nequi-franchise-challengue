@@ -1,47 +1,175 @@
-# Proyecto Base Implementando Clean Architecture
+# Franchise Management API
 
-## Antes de Iniciar
+A reactive REST API for managing franchises, branches, and products, built with Spring WebFlux and hexagonal architecture (Clean Architecture), developed as part of Pragma's TalentPool technical challenge for Nequi.
 
-Empezaremos por explicar los diferentes componentes del proyectos y partiremos de los componentes externos, continuando con los componentes core de negocio (dominio) y por último el inicio y configuración de la aplicación.
+## Overview
 
-Lee el artículo [Clean Architecture — Aislando los detalles](https://medium.com/bancolombia-tech/clean-architecture-aislando-los-detalles-4f9530f35d7a)
+The API models a three-level aggregate: a **Franchise** contains multiple **Branches**, and each Branch contains multiple **Products**. It supports creating franchises, adding/renaming branches and products, adjusting stock, removing products, and querying the top-stock product per branch within a franchise.
 
-# Arquitectura
+## Tech Stack
 
-![Clean Architecture](https://miro.medium.com/max/1400/1*ZdlHz8B0-qu9Y-QO3AXR_w.png)
+- **Java 21** (LTS)
+- **Spring Boot 4.1.1** with **Spring WebFlux** (fully reactive, `RouterFunction`/`Handler` — no `@RestController`)
+- **Project Reactor** (`Mono`/`Flux`)
+- **MongoDB Atlas** (reactive driver) for persistence
+- **Resilience4j** — Circuit Breaker, Timeout, Retry on the persistence adapter
+- **MapStruct** — domain ↔ persistence document mapping
+- **Lombok**
+- **springdoc-openapi** — Swagger UI
+- **JUnit 5 + StepVerifier + Mockito** — testing
+- **JaCoCo + PITest** — coverage and mutation testing
+- **Docker** (multi-stage build)
+- **Terraform** — AWS infrastructure as code (ECS Fargate, ALB, VPC, Secrets Manager, IAM)
 
-## Domain
+## Architecture
 
-Es el módulo más interno de la arquitectura, pertenece a la capa del dominio y encapsula la lógica y reglas del negocio mediante modelos y entidades del dominio.
+Generated with the [Bancolombia Clean Architecture Gradle plugin](https://github.com/bancolombia/scaffold-clean-architecture), enforcing a strict dependency rule: `model` has zero dependencies, `usecase` depends only on `model`, and `infrastructure` (entry-points, driven-adapters) can depend on both — never the other way around. Run `./gradlew validateStructure` to verify this rule holds.
 
-## Usecases
+```
+domain/
+├── model/                        → Franchise/Branch/Product aggregate, ports (gateways), domain exceptions
+└── usecase/                      → One class per business operation, StepVerifier-tested
+infrastructure/
+├── entry-points/reactive-web/    → RouterFunction + Handler, DTOs, OpenAPI docs
+└── driven-adapters/mongo-repository/ → MongoDB adapter, MapStruct mapper, Resilience4j wrapping
+applications/
+└── app-service/                  → Spring Boot wiring, the only module with main()
+terraform/
+├── backend-setup/                → Persistent: S3 state bucket, DynamoDB lock table, ECR repository
+├── modules/                      → Reusable: networking, secrets, iam, ecs, alb
+└── environments/dev/             → Root module composing all of the above
+```
 
-Este módulo gradle perteneciente a la capa del dominio, implementa los casos de uso del sistema, define lógica de aplicación y reacciona a las invocaciones desde el módulo de entry points, orquestando los flujos hacia el módulo de entities.
+## Prerequisites
 
-## Infrastructure
+- Java 21 ([SDKMAN](https://sdkman.io/) recommended: `sdk install java 21.0.11-amzn`)
+- Gradle 9.2.1+ (`sdk install gradle`)
+- Docker (or Colima on macOS)
+- A MongoDB Atlas cluster (free M0 tier is enough) — see [Local Setup](#local-setup)
+- An AWS account, with the AWS CLI configured, if you intend to deploy (see [Deployment](#deployment-to-aws))
+- Terraform 1.x (`brew install hashicorp/tap/terraform`), for deployment only
 
-### Helpers
+## Local Setup
 
-En el apartado de helpers tendremos utilidades generales para los Driven Adapters y Entry Points.
+1. Clone the repository and enter it:
+```bash
+   git clone https://github.com/isaac-uribe/nequi-franchise-challenge.git
+   cd nequi-franchise-challenge
+```
 
-Estas utilidades no están arraigadas a objetos concretos, se realiza el uso de generics para modelar comportamientos
-genéricos de los diferentes objetos de persistencia que puedan existir, este tipo de implementaciones se realizan
-basadas en el patrón de diseño [Unit of Work y Repository](https://medium.com/@krzychukosobudzki/repository-design-pattern-bc490b256006)
+2. Create a MongoDB Atlas cluster (or reuse an existing one) and get its connection URI. Make sure your current IP is allowed under **Network Access** in Atlas.
 
-Estas clases no puede existir solas y debe heredarse su compartimiento en los **Driven Adapters**
+3. Run the application, pointing at your Atlas cluster:
+```bash
+   export MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority"
+   ./gradlew bootRun --args="--spring.profiles.active=local --spring.mongodb.uri=${MONGODB_URI}"
+```
 
-### Driven Adapters
+> **Note:** the `local` profile disables the AWS Secrets Manager-based Mongo configuration
+> (used in production/AWS deployment) so the app can run without AWS credentials on your
+> machine. The connection URI is passed directly as a command-line argument, so no local
+> config file is needed — nothing to create before running the command above.
 
-Los driven adapter representan implementaciones externas a nuestro sistema, como lo son conexiones a servicios rest,
-soap, bases de datos, lectura de archivos planos, y en concreto cualquier origen y fuente de datos con la que debamos
-interactuar.
+4. Confirm it's up:
+```bash
+   curl http://localhost:8080/api/health
+```
 
-### Entry Points
+5. Explore the API interactively at:
 
-Los entry points representan los puntos de entrada de la aplicación o el inicio de los flujos de negocio.
+http://localhost:8080/webjars/swagger-ui/index.html
 
-## Application
 
-Este módulo es el más externo de la arquitectura, es el encargado de ensamblar los distintos módulos, resolver las dependencias y crear los beans de los casos de use (UseCases) de forma automática, inyectando en éstos instancias concretas de las dependencias declaradas. Además inicia la aplicación (es el único módulo del proyecto donde encontraremos la función “public static void main(String[] args)”.
+### Running with Docker
 
-**Los beans de los casos de uso se disponibilizan automaticamente gracias a un '@ComponentScan' ubicado en esta capa.**
+```bash
+docker build --platform linux/amd64 -t franchise-api:local .
+docker run --rm -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  -e SPRING_MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority" \
+  franchise-api:local
+```
+
+## Running Tests
+
+```bash
+./gradlew clean build
+```
+
+Runs unit tests (StepVerifier for reactive flows), JaCoCo coverage, PITest mutation testing, and `validateStructure`.
+
+## Deployment to AWS
+
+Infrastructure is provisioned with Terraform, split into a persistent stack and a disposable one — this lets you tear down the costly parts (NAT Gateway, ALB, ECS) between sessions while keeping Terraform's own state and the container registry intact.
+
+### One-time setup (persistent, low/no cost)
+
+```bash
+cd terraform/backend-setup
+terraform init
+terraform apply
+```
+
+Creates the S3 bucket + DynamoDB table used as Terraform's remote state backend, and the ECR repository for the application image.
+
+### Build and push the image
+
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+docker build --platform linux/amd64 -t franchise-api:local .
+docker tag franchise-api:local <account-id>.dkr.ecr.us-east-1.amazonaws.com/franchise-api:latest
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/franchise-api:latest
+```
+
+### Deploy the application stack
+
+```bash
+cd terraform/environments/dev
+```
+
+Create `terraform.tfvars` (git-ignored, never commit this):
+```hcl
+mongodb_uri     = "mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority"
+container_image = "<account-id>.dkr.ecr.us-east-1.amazonaws.com/franchise-api:latest"
+```
+
+```bash
+terraform init
+terraform plan   # review before applying
+terraform apply
+```
+
+This provisions the VPC, subnets, security groups, Secrets Manager secret, IAM roles, ECS cluster/task/service, ALB, and CPU-based auto scaling (1–3 tasks, target-tracking at 70% CPU).
+
+Get the public URL:
+```bash
+terraform output alb_url
+```
+
+Wait 1–2 minutes for the ECS task to pass its health check, then:
+```bash
+curl <alb_url>/api/health
+```
+
+### Tearing it down
+
+```bash
+cd terraform/environments/dev
+terraform destroy
+```
+
+This removes everything created in this stack (VPC, NAT Gateway, ALB, ECS, secrets) without touching the persistent backend/ECR stack from the one-time setup — safe to run between work sessions to avoid ongoing AWS charges.
+
+## Design Decisions
+
+A few choices worth calling out, since they were deliberate trade-offs rather than defaults:
+
+- **Aggregate root pattern**: `Franchise` owns `Branch` and `Product` with no back-references, matching a single MongoDB document per franchise — avoids circular references in an immutable model and keeps all mutations behind one repository.
+- **MapStruct over a generic reflection-based mapper**: explicit, predictable mapping for a two-level nested aggregate.
+- **Trunk-based Git workflow**: direct commits to `main`, short-lived branches only for changes that could leave `main` temporarily broken.
+- **Single NAT Gateway** (not one per AZ): a deliberate cost/availability trade-off appropriate for this challenge's scope.
+- **HTTP-only ALB listener** (no HTTPS): out of scope for this challenge; a 443 listener with an ACM certificate would be the production equivalent.
+
+## Commit Convention
+
+This repository follows [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`, English, imperative mood, no ticket references.
