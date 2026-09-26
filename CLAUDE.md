@@ -58,3 +58,33 @@ All code, comments, commit messages, and API documentation (OpenAPI/Swagger) in 
 - **Request DTOs live in `entry-points/reactive-web/api/dto`, not `domain/model`**: they're HTTP-shape records (`AddBranchRequest`, `RenameRequest`, etc.) tied to the JSON wire format, not domain concepts. Keeping them in the web layer preserves `domain/model`'s zero-dependency rule and lets the DTO shape evolve independently of the domain aggregates.
 - **`NotFoundException` vs `BusinessException`**: `NotFoundException extends BusinessException` and is used specifically for "Franchise/Branch/Product not found" cases; `Handler.handleError` maps it to 404, while any other `BusinessException` (blank name, negative stock, etc.) maps to 400. Validation messages never became `NotFoundException` — only "not found" messages did.
 - **`RouterRestTest`/`ConfigTest` are known-broken, deliberately deferred to Day 3**: both still reference the old scaffold route (`/api/usecase/path`) and don't provide `@MockitoBean`s for the 9 use cases `Handler` now requires, so they fail once Gradle's build cache stops masking it. This is a known gap, not a regression from today's work — fixing them (real route + `@MockitoBean` wiring, mirroring `HandlerTest`) is intentionally left for Day 3.
+
+## Lessons learned (Days 3-6)
+
+### Day 3 — MongoDB connection
+
+- **`spring.mongodb.uri`, not `spring.data.mongodb.uri`**: Spring Boot 4.x split Mongo config into `MongoProperties` (prefix `spring.mongodb`, has `uri`) and `DataMongoProperties` (prefix `spring.data.mongodb`, no `uri` field). The Boot 3.x key `spring.data.mongodb.uri` is silently ignored in 4.x — no error, it just falls back to the `localhost:27017` defaults.
+- **Gradle daemon caches env vars**: the daemon keeps the environment from when it first started, so exporting a new env var in the same terminal doesn't always reach a long-running daemon. Fix: `./gradlew --stop` before re-exporting and re-running.
+- **Most reliable local run against Atlas**: pass the URI directly as a `bootRun` argument instead of relying on env var + profile-specific YAML resolution: `./gradlew bootRun --args="--spring.profiles.active=local --spring.mongodb.uri=${MONGODB_URI}"`.
+- **`MongoConfig` is `@Profile("!local")`**: the Secrets-Manager-based bean never activates during local development, so the dev machine doesn't need AWS credentials.
+- The RouterRestTest/ConfigTest missing-beans issue noted in Day 2 was resolved in commit 3e70c1e by adding @MockitoBean for all 9 use cases — no longer an open item.
+
+### Day 4 — Docker
+
+- **`WORKDIR /app` breaks `validateStructure`**: the Bancolombia task does a naive string-replace of the container's working directory when resolving paths, so any module whose name contains "app" (`applications`, `app-service`) gets corrupted into nonsense like `..lications.-service`. Fix: use a WORKDIR that doesn't collide with any module name (`/workspace` for the build stage, `/runtime` for the final stage).
+- **Always build with `--platform linux/amd64`**: Fargate runs on x86_64; building on Apple Silicon without the flag produces an incompatible ARM64 image.
+- **Runtime stage runs as non-root**: `addgroup -S app && adduser -S app -G app` + `USER app`.
+- **`.dockerignore` excludes `terraform/`**: without it, `COPY . .` sends the Terraform provider cache (hundreds of MB) and any local `terraform.tfstate` (which contains the AWS account ID) into the build context.
+
+### Day 5 — Terraform / AWS
+
+- **Execution role vs task role, never conflated**: the execution role is used by the ECS agent (pull the image from ECR, ship logs to CloudWatch); the task role is used by the running app (`secretsmanager:GetSecretValue`). Least privilege — neither role can do the other's job.
+- **`recovery_window_in_days = 0` on `aws_secretsmanager_secret`**: this (not an S3-style `force_destroy` boolean) allows immediate deletion on `terraform destroy`. Otherwise AWS reserves the secret name for the default 30-day recovery window and blocks a same-name recreate on the next `apply`.
+- **`lifecycle { ignore_changes = [desired_count] }` on `aws_ecs_service`** once Application Auto Scaling is attached — without it, every `terraform apply` resets `desired_count` to the fixed value, fighting the autoscaling policy.
+- **`.terraform.lock.hcl` convention**: commit it for root modules that are `apply`-ed directly (`backend-setup`, `environments/dev`); never for reusable child modules (`modules/networking`, `modules/ecs`, etc.), which only get one as a side effect of `terraform init` for isolated validation.
+- **Atlas TLS handshake `internal_error` from ECS is an IP Access List issue**: when the connection works locally but fails from ECS (via NAT Gateway), it's almost always Atlas Network Access, not a cipher-suite/JDK/Alpine problem — Atlas returns this TLS alert instead of a clearer auth error when the source IP isn't whitelisted. The NAT Gateway's Elastic IP differs from the local machine's IP and needs its own entry (or `0.0.0.0/0` for development).
+- **Cost-conscious workflow**: `backend-setup` (S3 state bucket, DynamoDB lock table, ECR repo) stays applied permanently — negligible cost. `environments/dev` (VPC, NAT Gateway, ALB, ECS, Secrets Manager, IAM) is destroyed after each testing session and re-applied when needed — that's where the per-hour cost is (NAT Gateway and ALB in particular).
+
+### Day 6 — OpenAPI/Swagger
+
+- **springdoc doesn't document `RouterFunction`/`Handler` routes the way it does `@RestController`**: routes must be declared explicitly with `@RouterOperations`/`@RouterOperation` on the `RouterRest` bean method, pointing (`beanClass`/`beanMethod`) at `@Operation`-annotated methods on `Handler`.
