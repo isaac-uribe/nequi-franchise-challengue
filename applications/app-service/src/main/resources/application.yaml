@@ -24,6 +24,3 @@ management:
         enabled: true
 cors:
   allowed-origins: "http://localhost:4200,http://localhost:8080"
-aws:
-  region: "us-east-1"
-  secretName: "my-secret"
