@@ -1,8 +1,6 @@
 package co.com.bancolombia.usecase.product;
 
-import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
-import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
@@ -28,10 +26,8 @@ public class RenameProductUseCase {
     private Mono<Franchise> renameProductInFranchise(Franchise franchise, String branchId, String productId, String newName) {
         return FranchiseAggregateSupport.findBranch(franchise, branchId)
                 .flatMap(targetBranch -> FranchiseAggregateSupport.findProduct(targetBranch, productId)
-                        .map(existingProduct -> {
-                            Product renamedProduct = existingProduct.toBuilder().name(newName).build();
-                            Branch updatedBranch = FranchiseAggregateSupport.replaceProduct(targetBranch, productId, renamedProduct);
-                            return FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch);
-                        }));
+                        .map(existingProduct -> existingProduct.toBuilder().name(newName).build())
+                        .flatMap(renamedProduct -> FranchiseAggregateSupport.replaceProduct(targetBranch, productId, renamedProduct)))
+                .flatMap(updatedBranch -> FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch));
     }
 }

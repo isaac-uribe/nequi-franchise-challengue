@@ -1,6 +1,5 @@
 package co.com.bancolombia.usecase.branch;
 
-import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
@@ -26,9 +25,7 @@ public class RenameBranchUseCase {
 
     private Mono<Franchise> renameBranchInFranchise(Franchise franchise, String branchId, String newName) {
         return FranchiseAggregateSupport.findBranch(franchise, branchId)
-                .map(targetBranch -> {
-                    Branch renamedBranch = targetBranch.toBuilder().name(newName).build();
-                    return FranchiseAggregateSupport.replaceBranch(franchise, branchId, renamedBranch);
-                });
+                .map(targetBranch -> targetBranch.toBuilder().name(newName).build())
+                .flatMap(renamedBranch -> FranchiseAggregateSupport.replaceBranch(franchise, branchId, renamedBranch));
     }
 }

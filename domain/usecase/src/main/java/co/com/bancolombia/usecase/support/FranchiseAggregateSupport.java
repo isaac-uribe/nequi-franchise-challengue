@@ -7,9 +7,6 @@ import co.com.bancolombia.model.exception.NotFoundException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public final class FranchiseAggregateSupport {
 
     private FranchiseAggregateSupport() {
@@ -29,19 +26,36 @@ public final class FranchiseAggregateSupport {
                 .switchIfEmpty(Mono.error(new NotFoundException("Product not found: " + productId)));
     }
 
-    public static Franchise replaceBranch(Franchise franchise, String branchId, Branch updatedBranch) {
-        List<Branch> updatedBranches = new ArrayList<>();
-        for (Branch branch : franchise.getBranches()) {
-            updatedBranches.add(branch.getId().equals(branchId) ? updatedBranch : branch);
-        }
-        return franchise.toBuilder().branches(updatedBranches).build();
+    public static Mono<Franchise> replaceBranch(Franchise franchise, String branchId, Branch updatedBranch) {
+        return Flux.fromIterable(franchise.getBranches())
+                .map(branch -> branch.getId().equals(branchId) ? updatedBranch : branch)
+                .collectList()
+                .map(branches -> franchise.toBuilder().branches(branches).build());
     }
 
-    public static Branch replaceProduct(Branch branch, String productId, Product updatedProduct) {
-        List<Product> updatedProducts = new ArrayList<>();
-        for (Product product : branch.getProducts()) {
-            updatedProducts.add(product.getId().equals(productId) ? updatedProduct : product);
-        }
-        return branch.toBuilder().products(updatedProducts).build();
+    public static Mono<Branch> replaceProduct(Branch branch, String productId, Product updatedProduct) {
+        return Flux.fromIterable(branch.getProducts())
+                .map(product -> product.getId().equals(productId) ? updatedProduct : product)
+                .collectList()
+                .map(products -> branch.toBuilder().products(products).build());
+    }
+
+    public static Mono<Branch> addProduct(Branch branch, Product product) {
+        return Flux.concat(Flux.fromIterable(branch.getProducts()), Flux.just(product))
+                .collectList()
+                .map(products -> branch.toBuilder().products(products).build());
+    }
+
+    public static Mono<Branch> removeProduct(Branch branch, String productId) {
+        return Flux.fromIterable(branch.getProducts())
+                .filter(product -> !product.getId().equals(productId))
+                .collectList()
+                .map(products -> branch.toBuilder().products(products).build());
+    }
+
+    public static Mono<Franchise> addBranch(Franchise franchise, Branch branch) {
+        return Flux.concat(Flux.fromIterable(franchise.getBranches()), Flux.just(branch))
+                .collectList()
+                .map(branches -> franchise.toBuilder().branches(branches).build());
     }
 }

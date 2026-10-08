@@ -1,6 +1,5 @@
 package co.com.bancolombia.usecase.product;
 
-import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
@@ -10,8 +9,6 @@ import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -38,11 +35,7 @@ public class AddProductUseCase {
 
     private Mono<Franchise> addProductToBranch(Franchise franchise, String branchId, Product product) {
         return FranchiseAggregateSupport.findBranch(franchise, branchId)
-                .map(targetBranch -> {
-                    List<Product> updatedProducts = new ArrayList<>(targetBranch.getProducts());
-                    updatedProducts.add(product);
-                    Branch updatedBranch = targetBranch.toBuilder().products(updatedProducts).build();
-                    return FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch);
-                });
+                .flatMap(targetBranch -> FranchiseAggregateSupport.addProduct(targetBranch, product))
+                .flatMap(updatedBranch -> FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch));
     }
 }

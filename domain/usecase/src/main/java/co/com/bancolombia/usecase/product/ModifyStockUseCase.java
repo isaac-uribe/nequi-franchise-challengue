@@ -1,8 +1,6 @@
 package co.com.bancolombia.usecase.product;
 
-import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
-import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
@@ -28,14 +26,8 @@ public class ModifyStockUseCase {
     private Mono<Franchise> updateStock(Franchise franchise, String branchId, String productId, Integer newStock) {
         return FranchiseAggregateSupport.findBranch(franchise, branchId)
                 .flatMap(targetBranch -> FranchiseAggregateSupport.findProduct(targetBranch, productId)
-                        .map(existingProduct -> replaceStock(franchise, targetBranch, branchId, existingProduct, newStock)));
+                        .map(existingProduct -> existingProduct.toBuilder().stock(newStock).build())
+                        .flatMap(updatedProduct -> FranchiseAggregateSupport.replaceProduct(targetBranch, productId, updatedProduct)))
+                .flatMap(updatedBranch -> FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch));
     }
-
-    private Franchise replaceStock(Franchise franchise, Branch targetBranch, String branchId,
-                                   Product existingProduct, Integer newStock) {
-        Product updatedProduct = existingProduct.toBuilder().stock(newStock).build();
-        Branch updatedBranch = FranchiseAggregateSupport.replaceProduct(targetBranch, existingProduct.getId(), updatedProduct);
-        return FranchiseAggregateSupport.replaceBranch(franchise, branchId, updatedBranch);
-    }
-
 }
