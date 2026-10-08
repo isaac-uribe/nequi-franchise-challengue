@@ -65,8 +65,8 @@ All code, comments, commit messages, and API documentation (OpenAPI/Swagger) in 
 
 - **`spring.mongodb.uri`, not `spring.data.mongodb.uri`**: Spring Boot 4.x split Mongo config into `MongoProperties` (prefix `spring.mongodb`, has `uri`) and `DataMongoProperties` (prefix `spring.data.mongodb`, no `uri` field). The Boot 3.x key `spring.data.mongodb.uri` is silently ignored in 4.x — no error, it just falls back to the `localhost:27017` defaults.
 - **Gradle daemon caches env vars**: the daemon keeps the environment from when it first started, so exporting a new env var in the same terminal doesn't always reach a long-running daemon. Fix: `./gradlew --stop` before re-exporting and re-running.
-- **Most reliable local run against Atlas**: pass the URI directly as a `bootRun` argument instead of relying on env var + profile-specific YAML resolution: `./gradlew bootRun --args="--spring.profiles.active=local --spring.mongodb.uri=${MONGODB_URI}"`.
-- **`MongoConfig` is `@Profile("!local")`**: the Secrets-Manager-based bean never activates during local development, so the dev machine doesn't need AWS credentials.
+- **Most reliable local run against Atlas**: pass the URI directly as a `bootRun` argument instead of relying on env var + profile-specific YAML resolution: `./gradlew bootRun --args="--spring.mongodb.uri=${MONGODB_URI}"`.
+- **~~`MongoConfig` is `@Profile("!local")`~~ (obsolete)**: `MongoConfig` (which read the secret at startup with a blocking `.block()`) was removed. The URI is now injected by ECS from Secrets Manager, so there is no `local` profile anymore and the dev machine still doesn't need AWS credentials.
 - The RouterRestTest/ConfigTest missing-beans issue noted in Day 2 was resolved in commit 3e70c1e by adding @MockitoBean for all 9 use cases — no longer an open item.
 
 ### Day 4 — Docker
@@ -78,7 +78,8 @@ All code, comments, commit messages, and API documentation (OpenAPI/Swagger) in 
 
 ### Day 5 — Terraform / AWS
 
-- **Execution role vs task role, never conflated**: the execution role is used by the ECS agent (pull the image from ECR, ship logs to CloudWatch); the task role is used by the running app (`secretsmanager:GetSecretValue`). Least privilege — neither role can do the other's job.
+- **Execution role vs task role, never conflated**: the execution role is used by the ECS agent (pull the image from ECR, ship logs to CloudWatch, and read the MongoDB secret via `secretsmanager:GetSecretValue` to inject it before the container starts); the task role is used by the running app and currently has no attached policies, since the app never calls AWS APIs itself. Least privilege — neither role can do the other's job.
+- **Secret injected via the ECS `secrets` block**: the container definition uses `valueFrom = "<secret-arn>:uri::"` (JSON key `uri`, the two trailing colons are required) to set `SPRING_MONGODB_URI`, which maps to `spring.mongodb.uri`. Injection happens before the app starts, so there is no blocking Secrets Manager call at startup.
 - **`recovery_window_in_days = 0` on `aws_secretsmanager_secret`**: this (not an S3-style `force_destroy` boolean) allows immediate deletion on `terraform destroy`. Otherwise AWS reserves the secret name for the default 30-day recovery window and blocks a same-name recreate on the next `apply`.
 - **`lifecycle { ignore_changes = [desired_count] }` on `aws_ecs_service`** once Application Auto Scaling is attached — without it, every `terraform apply` resets `desired_count` to the fixed value, fighting the autoscaling policy.
 - **`.terraform.lock.hcl` convention**: commit it for root modules that are `apply`-ed directly (`backend-setup`, `environments/dev`); never for reusable child modules (`modules/networking`, `modules/ecs`, etc.), which only get one as a side effect of `terraform init` for isolated validation.

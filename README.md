@@ -62,13 +62,13 @@ terraform/
 3. Run the application, pointing at your Atlas cluster:
 ```bash
    export MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority"
-   ./gradlew bootRun --args="--spring.profiles.active=local --spring.mongodb.uri=${MONGODB_URI}"
+   ./gradlew bootRun --args="--spring.mongodb.uri=${MONGODB_URI}"
 ```
 
-> **Note:** the `local` profile disables the AWS Secrets Manager-based Mongo configuration
-> (used in production/AWS deployment) so the app can run without AWS credentials on your
-> machine. The connection URI is passed directly as a command-line argument, so no local
-> config file is needed — nothing to create before running the command above.
+> **Note:** in AWS, the URI is injected by ECS from Secrets Manager as the `SPRING_MONGODB_URI`
+> environment variable before the container starts, so the application never calls Secrets
+> Manager itself. Locally, you just pass the URI as a command-line argument — no AWS credentials
+> or local config file needed.
 
 4. Confirm it's up:
 ```bash
@@ -85,7 +85,6 @@ http://localhost:8080/webjars/swagger-ui/index.html
 ```bash
 docker build --platform linux/amd64 -t franchise-api:local .
 docker run --rm -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=local \
   -e SPRING_MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority" \
   franchise-api:local
 ```
