@@ -89,6 +89,23 @@ docker run --rm -p 8080:8080 \
   franchise-api:local
 ```
 
+## Validation Rules
+
+All validation runs in the domain (`usecase` module) **before** any database call, so invalid input never reaches MongoDB. Error responses are plain-text messages; internal details are never exposed.
+
+| Field | Rule | Result if violated |
+|---|---|---|
+| `franchiseId`, `branchId`, `productId` (path) | Canonical **lowercase** UUID: `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` | `400` `<Entity> id is invalid` |
+| Ids that are well-formed but don't exist | — | `404` `<Entity> not found: <id>` |
+| `name` (franchise, branch, product) | Not null, not blank, at most 100 characters | `400` `<Entity> name must not be blank` / `<Entity> name must not exceed 100 characters` |
+| `stock` | Not null, `>= 0` (`0` is allowed), no upper bound | `400` (see message below) |
+| Request body | Required on every `POST`/`PATCH` | `400` `Request body is required` |
+| Request body | Valid JSON with the expected field types (e.g. `"stock": "abc"` is rejected) | `400` `Invalid request body` |
+
+Stock messages: modifying stock returns `Stock must not be null` or `Stock must not be negative`; adding a product returns `Product stock must not be negative` for both cases.
+
+Ids are checked with a strict regex rather than `UUID.fromString`, which accepts non-canonical input such as `1-1-1-1-1` or uppercase UUIDs. Those would pass validation and then cost a useless database round trip that always ends in `404`.
+
 ## Running Tests
 
 ```bash

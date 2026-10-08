@@ -26,7 +26,18 @@ Java 21 (LTS), fixed explicitly in `main.gradle` toolchain — not left at the p
 - No `if` for conditional logic inside a reactive chain — use `filter`, `switchIfEmpty`, etc.
 - Never call `.block()` anywhere, including tests.
 - Never use `java.util.stream` (`List.stream()...`) inside a reactive flow — convert with `Flux.fromIterable(list)` and continue with reactive operators instead. `java.util.List` itself as a plain in-memory container (entity fields, method params) is fine; the restriction is on the `Stream` API specifically, not on collections.
-- Business validation (blank names, negative stock, not-found) is expressed as `filter(...).switchIfEmpty(Mono.error(new BusinessException(...)))`, not as thrown exceptions in an `if` block.
+- Business validation (blank names, negative stock, not-found) is expressed as `filter(...).switchIfEmpty(Mono.error(() -> new BusinessException(...)))`, not as thrown exceptions in an `if` block.
+
+## Input validation
+
+- **Validation lives in the domain**: `usecase/support/InputValidator` (`validId`, `validName`, `validStock`, each returning `Mono`). Every use case validates ids first, then names, then stock, and only then touches the repository. Invalid input must never reach `FranchiseRepository`; tests assert `verify(repository, never())`.
+- **Repository calls after validation must be lazy**: use `.then(Mono.defer(() -> repository.findById(id)))` or put the call inside a `flatMap` lambda. `.then(repository.findById(id))` calls the repository at assembly time, before validation has a chance to fail.
+- **Errors are built lazily**: always `Mono.error(() -> new BusinessException(...))`, never `Mono.error(new ...)`, so the exception and its message concatenation are only created when the error is actually emitted.
+- **Ids are validated with a strict precompiled regex** (canonical lowercase UUID), **not `UUID.fromString`**: on JDK 21 `UUID.fromString` accepts `"1-1-1-1-1"`, `"+1-+1-+1-+1-+1"` and uppercase UUIDs. Those would pass validation and then reach MongoDB as text that can never match a stored id, causing a useless DB round trip and a 404.
+- Names: not blank, at most `InputValidator.MAX_NAME_LENGTH` (100) characters. Stock: not null, `>= 0`.
+- At the HTTP layer, `Handler.readBody` turns an empty body into `BusinessException("Request body is required")`, and `handleError` maps `ServerWebInputException` (malformed JSON, wrong field types, numeric overflow, all caused by a `DecodingException`) to `400 "Invalid request body"`, without echoing details.
+- **No `try/catch` anywhere in production code**, not just in reactive chains.
+- Tests that call the real use cases must use valid UUIDs: each test module has its own `TestIds` helper (test sources aren't shared between modules).
 
 ## Testing conventions
 
