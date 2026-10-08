@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -47,12 +48,12 @@ public class Handler {
             responses = {
                     @ApiResponse(responseCode = "201", description = "Franchise created",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank or missing franchise name"),
+                    @ApiResponse(responseCode = "400", description = "Blank, missing or too long franchise name; missing or malformed body"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
     )
     public Mono<ServerResponse> createFranchise(ServerRequest request) {
-        return request.bodyToMono(CreateFranchiseRequest.class)
+        return readBody(request, CreateFranchiseRequest.class)
                 .flatMap(body -> createFranchiseUseCase.createFranchise(body.name()))
                 .flatMap(franchise -> ServerResponse.status(HttpStatus.CREATED).bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -63,20 +64,21 @@ public class Handler {
             summary = "Rename a franchise",
             description = "Updates the name of an existing franchise.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = RenameRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "200", description = "Franchise renamed",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank or missing name"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; blank, missing or too long name; missing or malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
     )
     public Mono<ServerResponse> renameFranchise(ServerRequest request) {
         String franchiseId = request.pathVariable("franchiseId");
-        return request.bodyToMono(RenameRequest.class)
+        return readBody(request, RenameRequest.class)
                 .flatMap(body -> renameFranchiseUseCase.renameFranchise(franchiseId, body.name()))
                 .flatMap(franchise -> ServerResponse.ok().bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -87,20 +89,21 @@ public class Handler {
             summary = "Add a branch to a franchise",
             description = "Adds a new branch, with no products, to an existing franchise.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AddBranchRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "201", description = "Branch added; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank or missing branch name"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; blank, missing or too long branch name; missing or malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
     )
     public Mono<ServerResponse> addBranch(ServerRequest request) {
         String franchiseId = request.pathVariable("franchiseId");
-        return request.bodyToMono(AddBranchRequest.class)
+        return readBody(request, AddBranchRequest.class)
                 .flatMap(body -> addBranchUseCase.addBranch(franchiseId, body.name()))
                 .flatMap(franchise -> ServerResponse.status(HttpStatus.CREATED).bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -111,14 +114,16 @@ public class Handler {
             summary = "Rename a branch",
             description = "Updates the name of a branch inside a franchise.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier"),
-                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = RenameRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "200", description = "Branch renamed; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank or missing name"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; blank, missing or too long name; missing or malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise or branch not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -126,7 +131,7 @@ public class Handler {
     public Mono<ServerResponse> renameBranch(ServerRequest request) {
         String franchiseId = request.pathVariable("franchiseId");
         String branchId = request.pathVariable("branchId");
-        return request.bodyToMono(RenameRequest.class)
+        return readBody(request, RenameRequest.class)
                 .flatMap(body -> renameBranchUseCase.renameBranch(franchiseId, branchId, body.name()))
                 .flatMap(franchise -> ServerResponse.ok().bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -137,14 +142,16 @@ public class Handler {
             summary = "Add a product to a branch",
             description = "Adds a new product with an initial stock to a branch of a franchise.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier"),
-                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AddProductRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "201", description = "Product added; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank name or negative stock"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; blank or too long name; missing or negative stock; malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise or branch not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -152,7 +159,7 @@ public class Handler {
     public Mono<ServerResponse> addProduct(ServerRequest request) {
         String franchiseId = request.pathVariable("franchiseId");
         String branchId = request.pathVariable("branchId");
-        return request.bodyToMono(AddProductRequest.class)
+        return readBody(request, AddProductRequest.class)
                 .flatMap(body -> addProductUseCase.addProduct(franchiseId, branchId, body.name(), body.stock()))
                 .flatMap(franchise -> ServerResponse.status(HttpStatus.CREATED).bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -163,13 +170,17 @@ public class Handler {
             summary = "Remove a product from a branch",
             description = "Deletes a product from a branch of a franchise.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier"),
-                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier"),
-                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             responses = {
                     @ApiResponse(responseCode = "200", description = "Product removed; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid id"),
                     @ApiResponse(responseCode = "404", description = "Franchise, branch or product not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -188,15 +199,18 @@ public class Handler {
             summary = "Modify product stock",
             description = "Replaces the stock of a product with the given value. Stock cannot be negative.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier"),
-                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier"),
-                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = ModifyStockRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "200", description = "Stock updated; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Negative or missing stock"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; missing or negative stock; missing or malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise, branch or product not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -205,7 +219,7 @@ public class Handler {
         String franchiseId = request.pathVariable("franchiseId");
         String branchId = request.pathVariable("branchId");
         String productId = request.pathVariable("productId");
-        return request.bodyToMono(ModifyStockRequest.class)
+        return readBody(request, ModifyStockRequest.class)
                 .flatMap(body -> modifyStockUseCase.modifyStock(franchiseId, branchId, productId, body.stock()))
                 .flatMap(franchise -> ServerResponse.ok().bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -216,15 +230,18 @@ public class Handler {
             summary = "Rename a product",
             description = "Updates the name of a product inside a branch.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier"),
-                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier"),
-                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "branchId", in = ParameterIn.PATH, required = true, description = "Branch identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid")),
+                    @Parameter(name = "productId", in = ParameterIn.PATH, required = true, description = "Product identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             requestBody = @RequestBody(required = true, content = @Content(schema = @Schema(implementation = RenameRequest.class))),
             responses = {
                     @ApiResponse(responseCode = "200", description = "Product renamed; returns the updated franchise",
                             content = @Content(schema = @Schema(implementation = Franchise.class))),
-                    @ApiResponse(responseCode = "400", description = "Blank or missing name"),
+                    @ApiResponse(responseCode = "400", description = "Invalid id; blank, missing or too long name; missing or malformed body"),
                     @ApiResponse(responseCode = "404", description = "Franchise, branch or product not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -233,7 +250,7 @@ public class Handler {
         String franchiseId = request.pathVariable("franchiseId");
         String branchId = request.pathVariable("branchId");
         String productId = request.pathVariable("productId");
-        return request.bodyToMono(RenameRequest.class)
+        return readBody(request, RenameRequest.class)
                 .flatMap(body -> renameProductUseCase.renameProduct(franchiseId, branchId, productId, body.name()))
                 .flatMap(franchise -> ServerResponse.ok().bodyValue(franchise))
                 .onErrorResume(this::handleError);
@@ -244,11 +261,13 @@ public class Handler {
             summary = "Get the top-stock product per branch",
             description = "Returns, for each branch of the franchise, the product with the highest stock, together with the branch it belongs to.",
             parameters = {
-                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier")
+                    @Parameter(name = "franchiseId", in = ParameterIn.PATH, required = true, description = "Franchise identifier (canonical lowercase UUID)",
+                            schema = @Schema(format = "uuid"))
             },
             responses = {
                     @ApiResponse(responseCode = "200", description = "Top-stock product for each branch",
                             content = @Content(array = @ArraySchema(schema = @Schema(implementation = TopStockProduct.class)))),
+                    @ApiResponse(responseCode = "400", description = "Invalid franchise id"),
                     @ApiResponse(responseCode = "404", description = "Franchise not found"),
                     @ApiResponse(responseCode = "500", description = "Unexpected error")
             }
@@ -261,12 +280,22 @@ public class Handler {
                 .onErrorResume(this::handleError);
     }
 
+    private <T> Mono<T> readBody(ServerRequest request, Class<T> bodyType) {
+        return request.bodyToMono(bodyType)
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Request body is required")));
+    }
+
     private Mono<ServerResponse> handleError(Throwable error) {
         if (error instanceof NotFoundException) {
             return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(error.getMessage());
         }
         if (error instanceof BusinessException) {
             return ServerResponse.badRequest().bodyValue(error.getMessage());
+        }
+        // Malformed JSON, wrong field types and numeric overflow all arrive as
+        // ServerWebInputException (caused by a DecodingException). Never echo its details.
+        if (error instanceof ServerWebInputException) {
+            return ServerResponse.badRequest().bodyValue("Invalid request body");
         }
         return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Unexpected error occurred");
     }

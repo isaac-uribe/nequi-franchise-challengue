@@ -24,6 +24,7 @@ import co.com.bancolombia.usecase.product.RenameProductUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -32,6 +33,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ContextConfiguration(classes = {RouterRest.class, Handler.class, HealthHandler.class})
@@ -335,5 +337,57 @@ class HandlerTest {
                 .uri("/api/franchises/{franchiseId}/top-stock-products", FRANCHISE_ID)
                 .exchange()
                 .expectStatus().isNotFound();
+    }
+
+    @Test
+    void shouldReturn400WithGenericMessageForMalformedJson() {
+        webTestClient.post()
+                .uri("/api/franchises")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"name\": ")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Invalid request body");
+
+        verifyNoInteractions(createFranchiseUseCase);
+    }
+
+    @Test
+    void shouldReturn400WhenBodyIsEmpty() {
+        webTestClient.post()
+                .uri("/api/franchises")
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Request body is required");
+
+        verifyNoInteractions(createFranchiseUseCase);
+    }
+
+    @Test
+    void shouldReturn400WithGenericMessageForWrongStockType() {
+        webTestClient.patch()
+                .uri("/api/franchises/{franchiseId}/branches/{branchId}/products/{productId}/stock",
+                        FRANCHISE_ID, BRANCH_ID, PRODUCT_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"stock\": \"abc\"}")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Invalid request body");
+
+        verifyNoInteractions(modifyStockUseCase);
+    }
+
+    @Test
+    void shouldReturn500WithoutInternalDetailsForUnexpectedErrors() {
+        when(createFranchiseUseCase.createFranchise("Juan Valdez"))
+                .thenReturn(Mono.error(new IllegalStateException("connection refused: mongo-host:27017")));
+
+        webTestClient.post()
+                .uri("/api/franchises")
+                .bodyValue(new CreateFranchiseRequest("Juan Valdez"))
+                .exchange()
+                .expectStatus().is5xxServerError()
+                .expectBody(String.class).isEqualTo("Unexpected error occurred");
     }
 }

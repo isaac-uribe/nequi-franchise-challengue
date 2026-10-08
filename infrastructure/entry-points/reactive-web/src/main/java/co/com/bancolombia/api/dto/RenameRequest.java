@@ -1,4 +1,6 @@
 package co.com.bancolombia.api.dto;
 
-public record RenameRequest(String name) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+public record RenameRequest(@Schema(maxLength = 100) String name) {
 }
