@@ -29,10 +29,10 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      environment = [
+      secrets = [
         {
-          name  = "AWS_SECRETNAME"
-          value = var.secret_arn
+          name      = "SPRING_MONGODB_URI"
+          valueFrom = "${var.secret_arn}:uri::"
         }
       ]
 

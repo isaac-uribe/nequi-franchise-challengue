@@ -32,6 +32,6 @@ data "aws_iam_policy_document" "secrets_access" {
 
 resource "aws_iam_role_policy" "secrets_access" {
   name   = "${var.project_name}-secrets-access"
-  role   = aws_iam_role.ecs_task.id
+  role   = aws_iam_role.ecs_task_execution.id
   policy = data.aws_iam_policy_document.secrets_access.json
 }
