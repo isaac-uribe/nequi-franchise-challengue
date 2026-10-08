@@ -16,14 +16,14 @@ public final class FranchiseAggregateSupport {
         return Flux.fromIterable(franchise.getBranches())
                 .filter(branch -> branch.getId().equals(branchId))
                 .next()
-                .switchIfEmpty(Mono.error(new NotFoundException("Branch not found: " + branchId)));
+                .switchIfEmpty(Mono.error(() -> new NotFoundException("Branch not found: " + branchId)));
     }
 
     public static Mono<Product> findProduct(Branch branch, String productId) {
         return Flux.fromIterable(branch.getProducts())
                 .filter(product -> product.getId().equals(productId))
                 .next()
-                .switchIfEmpty(Mono.error(new NotFoundException("Product not found: " + productId)));
+                .switchIfEmpty(Mono.error(() -> new NotFoundException("Product not found: " + productId)));
     }
 
     public static Mono<Franchise> replaceBranch(Franchise franchise, String branchId, Branch updatedBranch) {

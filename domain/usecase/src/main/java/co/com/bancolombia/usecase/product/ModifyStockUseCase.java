@@ -16,9 +16,9 @@ public class ModifyStockUseCase {
     public Mono<Franchise> modifyStock(String franchiseId, String branchId, String productId, Integer newStock) {
         return Mono.justOrEmpty(newStock)
                 .filter(stock -> stock >= 0)
-                .switchIfEmpty(Mono.error(new BusinessException("Stock must not be negative")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Stock must not be negative")))
                 .flatMap(stock -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> updateStock(franchise, branchId, productId, stock)))
                 .flatMap(franchiseRepository::save);
     }

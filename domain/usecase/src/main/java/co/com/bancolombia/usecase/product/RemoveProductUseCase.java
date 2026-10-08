@@ -14,7 +14,7 @@ public class RemoveProductUseCase {
 
     public Mono<Franchise> removeProduct(String franchiseId, String branchId, String productId) {
         return franchiseRepository.findById(franchiseId)
-                .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                 .flatMap(franchise -> removeProductFromBranch(franchise, branchId, productId))
                 .flatMap(franchiseRepository::save);
     }

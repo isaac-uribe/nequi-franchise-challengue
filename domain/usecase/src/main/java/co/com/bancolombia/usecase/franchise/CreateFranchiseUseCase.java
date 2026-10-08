@@ -16,7 +16,7 @@ public class CreateFranchiseUseCase {
     public Mono<Franchise> createFranchise(String name) {
         return Mono.justOrEmpty(name)
                 .filter(n -> !n.isBlank())
-                .switchIfEmpty(Mono.error(new BusinessException("Franchise name must not be blank")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Franchise name must not be blank")))
                 .map(n -> Franchise.builder()
                         .id(UUID.randomUUID().toString())
                         .name(n)

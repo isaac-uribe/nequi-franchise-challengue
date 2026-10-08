@@ -15,9 +15,9 @@ public class RenameFranchiseUseCase {
     public Mono<Franchise> renameFranchise(String franchiseId, String newName) {
         return Mono.justOrEmpty(newName)
                 .filter(name -> !name.isBlank())
-                .switchIfEmpty(Mono.error(new BusinessException("Franchise name must not be blank")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Franchise name must not be blank")))
                 .flatMap(name -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .map(franchise -> franchise.toBuilder().name(name).build()))
                 .flatMap(franchiseRepository::save);
     }

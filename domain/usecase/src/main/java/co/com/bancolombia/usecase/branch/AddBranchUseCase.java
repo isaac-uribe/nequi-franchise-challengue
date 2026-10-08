@@ -19,9 +19,9 @@ public class AddBranchUseCase {
     public Mono<Franchise> addBranch(String franchiseId, String branchName) {
         return Mono.justOrEmpty(branchName)
                 .filter(name -> !name.isBlank())
-                .switchIfEmpty(Mono.error(new BusinessException("Branch name must not be blank")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Branch name must not be blank")))
                 .flatMap(name -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> appendBranch(franchise, name)))
                 .flatMap(franchiseRepository::save);
     }

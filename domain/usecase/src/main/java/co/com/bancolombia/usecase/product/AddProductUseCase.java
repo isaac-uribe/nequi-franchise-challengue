@@ -18,17 +18,17 @@ public class AddProductUseCase {
     public Mono<Franchise> addProduct(String franchiseId, String branchId, String productName, Integer stock) {
         return Mono.justOrEmpty(productName)
                 .filter(name -> !name.isBlank())
-                .switchIfEmpty(Mono.error(new BusinessException("Product name must not be blank")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Product name must not be blank")))
                 .flatMap(name -> Mono.justOrEmpty(stock)
                         .filter(s -> s >= 0)
-                        .switchIfEmpty(Mono.error(new BusinessException("Product stock must not be negative")))
+                        .switchIfEmpty(Mono.error(() -> new BusinessException("Product stock must not be negative")))
                         .map(validStock -> Product.builder()
                                 .id(UUID.randomUUID().toString())
                                 .name(name)
                                 .stock(validStock)
                                 .build()))
                 .flatMap(product -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> addProductToBranch(franchise, branchId, product)))
                 .flatMap(franchiseRepository::save);
     }

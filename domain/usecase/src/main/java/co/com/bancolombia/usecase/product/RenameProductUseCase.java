@@ -16,9 +16,9 @@ public class RenameProductUseCase {
     public Mono<Franchise> renameProduct(String franchiseId, String branchId, String productId, String newName) {
         return Mono.justOrEmpty(newName)
                 .filter(name -> !name.isBlank())
-                .switchIfEmpty(Mono.error(new BusinessException("Product name must not be blank")))
+                .switchIfEmpty(Mono.error(() -> new BusinessException("Product name must not be blank")))
                 .flatMap(name -> franchiseRepository.findById(franchiseId)
-                        .switchIfEmpty(Mono.error(new NotFoundException("Franchise not found: " + franchiseId)))
+                        .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> renameProductInFranchise(franchise, branchId, productId, name)))
                 .flatMap(franchiseRepository::save);
     }
