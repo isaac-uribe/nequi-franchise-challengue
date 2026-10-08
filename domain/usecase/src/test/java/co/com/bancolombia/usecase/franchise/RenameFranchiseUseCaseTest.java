@@ -3,6 +3,7 @@ package co.com.bancolombia.usecase.franchise;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RenameFranchiseUseCaseTest {
 
-    private static final String FRANCHISE_ID = "franchise-1";
+    private static final String FRANCHISE_ID = TestIds.FRANCHISE_ID;
 
     @Mock
     private FranchiseRepository franchiseRepository;
@@ -123,5 +124,57 @@ class RenameFranchiseUseCaseTest {
         StepVerifier.create(renameFranchiseUseCase.renameFranchise(FRANCHISE_ID, "New Name"))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectTooLongNameWithoutTouchingRepository() {
+        StepVerifier.create(renameFranchiseUseCase.renameFranchise(TestIds.FRANCHISE_ID, "a".repeat(10_000)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNameOfOneHundredOneCharacters() {
+        StepVerifier.create(renameFranchiseUseCase.renameFranchise(TestIds.FRANCHISE_ID, "a".repeat(101)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(renameFranchiseUseCase.renameFranchise("-1", "Valid Name"))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateIdsBeforeName() {
+        StepVerifier.create(renameFranchiseUseCase.renameFranchise("-1", "   "))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }

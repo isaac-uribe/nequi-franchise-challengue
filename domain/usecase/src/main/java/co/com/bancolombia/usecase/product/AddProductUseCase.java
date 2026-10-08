@@ -6,6 +6,7 @@ import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
+import co.com.bancolombia.usecase.support.InputValidator;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -16,9 +17,9 @@ public class AddProductUseCase {
     private final FranchiseRepository franchiseRepository;
 
     public Mono<Franchise> addProduct(String franchiseId, String branchId, String productName, Integer stock) {
-        return Mono.justOrEmpty(productName)
-                .filter(name -> !name.isBlank())
-                .switchIfEmpty(Mono.error(() -> new BusinessException("Product name must not be blank")))
+        return InputValidator.validId(franchiseId, "Franchise")
+                .then(InputValidator.validId(branchId, "Branch"))
+                .then(InputValidator.validName(productName, "Product"))
                 .flatMap(name -> Mono.justOrEmpty(stock)
                         .filter(s -> s >= 0)
                         .switchIfEmpty(Mono.error(() -> new BusinessException("Product stock must not be negative")))

@@ -4,6 +4,7 @@ import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +37,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldAddBranchWhenFranchiseExistsAndNameIsValid() {
-        String franchiseId = "franchise-1";
+        String franchiseId = TestIds.FRANCHISE_ID;
         Branch existingBranch = Branch.builder().id("branch-0").name("Existing Branch").build();
         Franchise franchise = Franchise.builder()
                 .id(franchiseId)
@@ -66,7 +67,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldNotMutateOriginalFranchiseBranchesList() {
-        String franchiseId = "franchise-1";
+        String franchiseId = TestIds.FRANCHISE_ID;
         List<Branch> originalBranches = List.of(Branch.builder().id("branch-0").name("Existing Branch").build());
         Franchise franchise = Franchise.builder()
                 .id(franchiseId)
@@ -87,7 +88,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldFailWhenBranchNameIsBlank() {
-        StepVerifier.create(addBranchUseCase.addBranch("franchise-1", "   "))
+        StepVerifier.create(addBranchUseCase.addBranch(TestIds.FRANCHISE_ID, "   "))
                 .expectErrorSatisfies(error -> {
                     assertThat(error).isInstanceOf(BusinessException.class);
                     assertThat(error.getMessage()).isEqualTo("Branch name must not be blank");
@@ -100,7 +101,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldFailWhenBranchNameIsNull() {
-        StepVerifier.create(addBranchUseCase.addBranch("franchise-1", null))
+        StepVerifier.create(addBranchUseCase.addBranch(TestIds.FRANCHISE_ID, null))
                 .expectErrorSatisfies(error -> assertThat(error).isInstanceOf(BusinessException.class))
                 .verify();
 
@@ -110,7 +111,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldFailWhenFranchiseNotFound() {
-        String franchiseId = "missing-franchise";
+        String franchiseId = TestIds.MISSING_FRANCHISE_ID;
         when(franchiseRepository.findById(franchiseId)).thenReturn(Mono.empty());
 
         StepVerifier.create(addBranchUseCase.addBranch(franchiseId, "New Branch"))
@@ -125,7 +126,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldPropagateRepositoryErrorOnFindById() {
-        String franchiseId = "franchise-1";
+        String franchiseId = TestIds.FRANCHISE_ID;
         RuntimeException repositoryError = new RuntimeException("lookup failure");
         when(franchiseRepository.findById(franchiseId)).thenReturn(Mono.error(repositoryError));
 
@@ -138,7 +139,7 @@ class AddBranchUseCaseTest {
 
     @Test
     void shouldPropagateRepositoryErrorOnSave() {
-        String franchiseId = "franchise-1";
+        String franchiseId = TestIds.FRANCHISE_ID;
         Franchise franchise = Franchise.builder().id(franchiseId).name("Franchise One").build();
         RuntimeException repositoryError = new RuntimeException("persistence failure");
 
@@ -148,5 +149,57 @@ class AddBranchUseCaseTest {
         StepVerifier.create(addBranchUseCase.addBranch(franchiseId, "New Branch"))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectTooLongNameWithoutTouchingRepository() {
+        StepVerifier.create(addBranchUseCase.addBranch(TestIds.FRANCHISE_ID, "a".repeat(10_000)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNameOfOneHundredOneCharacters() {
+        StepVerifier.create(addBranchUseCase.addBranch(TestIds.FRANCHISE_ID, "a".repeat(101)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(addBranchUseCase.addBranch("-1", "Valid Name"))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateIdsBeforeName() {
+        StepVerifier.create(addBranchUseCase.addBranch("-1", "   "))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }

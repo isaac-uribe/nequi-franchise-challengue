@@ -80,4 +80,30 @@ class CreateFranchiseUseCaseTest {
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
     }
+
+    @Test
+    void shouldRejectTooLongNameWithoutTouchingRepository() {
+        StepVerifier.create(createFranchiseUseCase.createFranchise("a".repeat(10_000)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNameOfOneHundredOneCharacters() {
+        StepVerifier.create(createFranchiseUseCase.createFranchise("a".repeat(101)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
 }

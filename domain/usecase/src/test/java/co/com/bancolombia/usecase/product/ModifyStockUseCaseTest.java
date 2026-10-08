@@ -5,6 +5,7 @@ import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,10 +27,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ModifyStockUseCaseTest {
 
-    private static final String FRANCHISE_ID = "franchise-1";
-    private static final String BRANCH_ID = "branch-1";
+    private static final String FRANCHISE_ID = TestIds.FRANCHISE_ID;
+    private static final String BRANCH_ID = TestIds.BRANCH_ID;
     private static final String OTHER_BRANCH_ID = "branch-2";
-    private static final String PRODUCT_ID = "product-1";
+    private static final String PRODUCT_ID = TestIds.PRODUCT_ID;
 
     @Mock
     private FranchiseRepository franchiseRepository;
@@ -211,5 +212,70 @@ class ModifyStockUseCaseTest {
         StepVerifier.create(modifyStockUseCase.modifyStock(FRANCHISE_ID, BRANCH_ID, PRODUCT_ID, 15))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(modifyStockUseCase.modifyStock("-1", TestIds.BRANCH_ID, TestIds.PRODUCT_ID, 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidBranchIdWithoutTouchingRepository() {
+        StepVerifier.create(modifyStockUseCase.modifyStock(TestIds.FRANCHISE_ID, "-1", TestIds.PRODUCT_ID, 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidProductIdWithoutTouchingRepository() {
+        StepVerifier.create(modifyStockUseCase.modifyStock(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, "-1", 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Product id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNullStockWithoutTouchingRepository() {
+        StepVerifier.create(modifyStockUseCase.modifyStock(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, TestIds.PRODUCT_ID, null))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Stock must not be null");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateIdsBeforeStock() {
+        StepVerifier.create(modifyStockUseCase.modifyStock("-1", TestIds.BRANCH_ID, TestIds.PRODUCT_ID, -1))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }

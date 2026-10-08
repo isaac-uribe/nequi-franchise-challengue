@@ -3,6 +3,7 @@ package co.com.bancolombia.usecase.product;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.model.vo.TopStockProduct;
+import co.com.bancolombia.usecase.support.InputValidator;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -12,7 +13,8 @@ public class GetTopStockProductByBranchUseCase {
     private final FranchiseRepository franchiseRepository;
 
     public Flux<TopStockProduct> topStockProductsByFranchise(String franchiseId) {
-        return franchiseRepository.findById(franchiseId)
+        return InputValidator.validId(franchiseId, "Franchise")
+                .then(Mono.defer(() -> franchiseRepository.findById(franchiseId)))
                 .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                 .flatMapMany(franchise -> Flux.fromIterable(franchise.getBranches()))
                 .concatMap(branch -> Flux.fromIterable(branch.getProducts())

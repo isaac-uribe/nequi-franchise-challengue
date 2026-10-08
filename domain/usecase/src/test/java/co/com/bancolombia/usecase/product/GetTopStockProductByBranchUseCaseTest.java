@@ -5,6 +5,7 @@ import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,13 +17,16 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GetTopStockProductByBranchUseCaseTest {
 
-    private static final String FRANCHISE_ID = "franchise-1";
-    private static final String BRANCH_ID = "branch-1";
+    private static final String FRANCHISE_ID = TestIds.FRANCHISE_ID;
+    private static final String BRANCH_ID = TestIds.BRANCH_ID;
     private static final String OTHER_BRANCH_ID = "branch-2";
 
     @Mock
@@ -137,5 +141,18 @@ class GetTopStockProductByBranchUseCaseTest {
         StepVerifier.create(getTopStockProductByBranchUseCase.topStockProductsByFranchise(FRANCHISE_ID))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(getTopStockProductByBranchUseCase.topStockProductsByFranchise("-1"))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }

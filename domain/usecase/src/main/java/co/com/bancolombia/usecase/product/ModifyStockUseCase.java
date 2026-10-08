@@ -1,10 +1,10 @@
 package co.com.bancolombia.usecase.product;
 
 import co.com.bancolombia.model.aggregate.Franchise;
-import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
+import co.com.bancolombia.usecase.support.InputValidator;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -14,9 +14,10 @@ public class ModifyStockUseCase {
     private final FranchiseRepository franchiseRepository;
 
     public Mono<Franchise> modifyStock(String franchiseId, String branchId, String productId, Integer newStock) {
-        return Mono.justOrEmpty(newStock)
-                .filter(stock -> stock >= 0)
-                .switchIfEmpty(Mono.error(() -> new BusinessException("Stock must not be negative")))
+        return InputValidator.validId(franchiseId, "Franchise")
+                .then(InputValidator.validId(branchId, "Branch"))
+                .then(InputValidator.validId(productId, "Product"))
+                .then(InputValidator.validStock(newStock))
                 .flatMap(stock -> franchiseRepository.findById(franchiseId)
                         .switchIfEmpty(Mono.error(() -> new NotFoundException("Franchise not found: " + franchiseId)))
                         .flatMap(franchise -> updateStock(franchise, branchId, productId, stock)))

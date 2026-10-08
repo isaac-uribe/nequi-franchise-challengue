@@ -5,6 +5,7 @@ import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,8 +26,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AddProductUseCaseTest {
 
-    private static final String FRANCHISE_ID = "franchise-1";
-    private static final String BRANCH_ID = "branch-1";
+    private static final String FRANCHISE_ID = TestIds.FRANCHISE_ID;
+    private static final String BRANCH_ID = TestIds.BRANCH_ID;
     private static final String OTHER_BRANCH_ID = "branch-2";
 
     @Mock
@@ -202,5 +203,70 @@ class AddProductUseCaseTest {
         StepVerifier.create(addProductUseCase.addProduct(FRANCHISE_ID, BRANCH_ID, "New Product", 10))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectTooLongNameWithoutTouchingRepository() {
+        StepVerifier.create(addProductUseCase.addProduct(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, "a".repeat(10_000), 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Product name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNameOfOneHundredOneCharacters() {
+        StepVerifier.create(addProductUseCase.addProduct(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, "a".repeat(101), 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Product name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(addProductUseCase.addProduct("-1", TestIds.BRANCH_ID, "Valid Name", 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidBranchIdWithoutTouchingRepository() {
+        StepVerifier.create(addProductUseCase.addProduct(TestIds.FRANCHISE_ID, "-1", "Valid Name", 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateIdsBeforeName() {
+        StepVerifier.create(addProductUseCase.addProduct("-1", TestIds.BRANCH_ID, "   ", 10))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }

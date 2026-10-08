@@ -4,6 +4,7 @@ import co.com.bancolombia.model.aggregate.Branch;
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
+import co.com.bancolombia.usecase.TestIds;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,8 +28,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RenameBranchUseCaseTest {
 
-    private static final String FRANCHISE_ID = "franchise-1";
-    private static final String BRANCH_ID = "branch-1";
+    private static final String FRANCHISE_ID = TestIds.FRANCHISE_ID;
+    private static final String BRANCH_ID = TestIds.BRANCH_ID;
     private static final String OTHER_BRANCH_ID = "branch-2";
 
     @Mock
@@ -172,5 +173,70 @@ class RenameBranchUseCaseTest {
         StepVerifier.create(renameBranchUseCase.renameBranch(FRANCHISE_ID, BRANCH_ID, "New Name"))
                 .expectErrorMatches(error -> error == repositoryError)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectTooLongNameWithoutTouchingRepository() {
+        StepVerifier.create(renameBranchUseCase.renameBranch(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, "a".repeat(10_000)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectNameOfOneHundredOneCharacters() {
+        StepVerifier.create(renameBranchUseCase.renameBranch(TestIds.FRANCHISE_ID, TestIds.BRANCH_ID, "a".repeat(101)))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch name must not exceed 100 characters");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidFranchiseIdWithoutTouchingRepository() {
+        StepVerifier.create(renameBranchUseCase.renameBranch("-1", TestIds.BRANCH_ID, "Valid Name"))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldRejectInvalidBranchIdWithoutTouchingRepository() {
+        StepVerifier.create(renameBranchUseCase.renameBranch(TestIds.FRANCHISE_ID, "-1", "Valid Name"))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Branch id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldValidateIdsBeforeName() {
+        StepVerifier.create(renameBranchUseCase.renameBranch("-1", TestIds.BRANCH_ID, "   "))
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(BusinessException.class);
+                    assertThat(error.getMessage()).isEqualTo("Franchise id is invalid");
+                })
+                .verify();
+
+        verify(franchiseRepository, never()).findById(any());
+        verify(franchiseRepository, never()).save(any());
     }
 }
