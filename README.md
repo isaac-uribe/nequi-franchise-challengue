@@ -102,7 +102,7 @@ All validation runs in the domain (`usecase` module) **before** any database cal
 | Request body | Required on every `POST`/`PATCH` | `400` `Request body is required` |
 | Request body | Valid JSON with the expected field types (e.g. `"stock": "abc"` is rejected) | `400` `Invalid request body` |
 
-Stock messages: modifying stock returns `Stock must not be null` or `Stock must not be negative`; adding a product returns `Product stock must not be negative` for both cases.
+Stock messages (both when adding a product and when modifying stock): `Stock must not be null` or `Stock must not be negative`.
 
 Ids are checked with a strict regex rather than `UUID.fromString`, which accepts non-canonical input such as `1-1-1-1-1` or uppercase UUIDs. Those would pass validation and then cost a useless database round trip that always ends in `404`.
 
