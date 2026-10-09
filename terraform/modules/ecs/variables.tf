@@ -1,6 +1,7 @@
 variable "project_name" {
-  type    = string
-  default = "franchise"
+  description = "Name prefix for the ECS cluster, service, task family, container, log group and scaling policy"
+  type        = string
+  default     = "franchise"
 }
 
 variable "container_image" {
@@ -9,23 +10,28 @@ variable "container_image" {
 }
 
 variable "private_subnet_ids" {
-  type = list(string)
+  description = "Private subnets the Fargate tasks run in, without public IPs; outbound traffic goes through the NAT Gateway"
+  type        = list(string)
 }
 
 variable "ecs_security_group_id" {
-  type = string
+  description = "Security group attached to the tasks; it only allows port 8080 from the ALB security group"
+  type        = string
 }
 
 variable "execution_role_arn" {
-  type = string
+  description = "Role used by the ECS agent to pull the image, write logs and inject the MongoDB secret"
+  type        = string
 }
 
 variable "task_role_arn" {
-  type = string
+  description = "Role assumed by the application code; it has no permissions because the app calls no AWS APIs"
+  type        = string
 }
 
 variable "secret_arn" {
-  type = string
+  description = "ARN of the Secrets Manager secret whose uri key is injected into the container as SPRING_MONGODB_URI"
+  type        = string
 }
 
 variable "target_group_arn" {
@@ -34,26 +40,31 @@ variable "target_group_arn" {
 }
 
 variable "task_cpu" {
-  type    = string
-  default = "512"
+  description = "CPU units reserved for the Fargate task (512 = 0.5 vCPU); must be a valid Fargate CPU/memory combination"
+  type        = string
+  default     = "512"
 }
 
 variable "task_memory" {
-  type    = string
-  default = "1024"
+  description = "Memory in MiB reserved for the Fargate task (1024 = 1 GiB)"
+  type        = string
+  default     = "1024"
 }
 
 variable "desired_count" {
-  type    = number
-  default = 1
+  description = "Initial number of tasks; Auto Scaling manages it afterwards and later changes to it are ignored"
+  type        = number
+  default     = 1
 }
 
 variable "min_capacity" {
-  type    = number
-  default = 1
+  description = "Lower bound on the number of tasks for CPU-based Auto Scaling"
+  type        = number
+  default     = 1
 }
 
 variable "max_capacity" {
-  type    = number
-  default = 3
+  description = "Upper bound on the number of tasks for CPU-based Auto Scaling"
+  type        = number
+  default     = 3
 }
