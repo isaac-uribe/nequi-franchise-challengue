@@ -131,7 +131,7 @@ class AddProductUseCaseTest {
         StepVerifier.create(addProductUseCase.addProduct(FRANCHISE_ID, BRANCH_ID, "New Product", null))
                 .expectErrorSatisfies(error -> {
                     assertThat(error).isInstanceOf(BusinessException.class);
-                    assertThat(error.getMessage()).isEqualTo("Product stock must not be negative");
+                    assertThat(error.getMessage()).isEqualTo("Stock must not be null");
                 })
                 .verify();
 
@@ -144,7 +144,7 @@ class AddProductUseCaseTest {
         StepVerifier.create(addProductUseCase.addProduct(FRANCHISE_ID, BRANCH_ID, "New Product", -1))
                 .expectErrorSatisfies(error -> {
                     assertThat(error).isInstanceOf(BusinessException.class);
-                    assertThat(error.getMessage()).isEqualTo("Product stock must not be negative");
+                    assertThat(error.getMessage()).isEqualTo("Stock must not be negative");
                 })
                 .verify();
 

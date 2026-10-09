@@ -2,7 +2,6 @@ package co.com.bancolombia.usecase.product;
 
 import co.com.bancolombia.model.aggregate.Franchise;
 import co.com.bancolombia.model.aggregate.Product;
-import co.com.bancolombia.model.exception.BusinessException;
 import co.com.bancolombia.model.exception.NotFoundException;
 import co.com.bancolombia.model.gateway.FranchiseRepository;
 import co.com.bancolombia.usecase.support.FranchiseAggregateSupport;
@@ -20,9 +19,7 @@ public class AddProductUseCase {
         return InputValidator.validId(franchiseId, "Franchise")
                 .then(InputValidator.validId(branchId, "Branch"))
                 .then(InputValidator.validName(productName, "Product"))
-                .flatMap(name -> Mono.justOrEmpty(stock)
-                        .filter(s -> s >= 0)
-                        .switchIfEmpty(Mono.error(() -> new BusinessException("Product stock must not be negative")))
+                .flatMap(name -> InputValidator.validStock(stock)
                         .map(validStock -> Product.builder()
                                 .id(UUID.randomUUID().toString())
                                 .name(name)
