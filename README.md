@@ -53,8 +53,8 @@ terraform/
 
 1. Clone the repository and enter it:
 ```bash
-   git clone https://github.com/isaac-uribe/nequi-franchise-challenge.git
-   cd nequi-franchise-challenge
+    git clone https://github.com/isaac-uribe/nequi-franchise-challengue.git
+    cd nequi-franchise-challengue
 ```
 
 2. Create a MongoDB Atlas cluster (or reuse an existing one) and get its connection URI. Make sure your current IP is allowed under **Network Access** in Atlas.
