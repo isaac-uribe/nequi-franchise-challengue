@@ -127,6 +127,12 @@ terraform apply
 
 Creates the S3 bucket + DynamoDB table used as Terraform's remote state backend, and the ECR repository for the application image.
 
+`state_bucket_name` has no default and must be globally unique (S3 bucket names are unique across all AWS accounts; lowercase, 3–63 characters), so pass it explicitly and read it back:
+```bash
+terraform apply -var="state_bucket_name=<globally-unique-bucket-name>"
+terraform output state_bucket_name
+```
+
 ### Build and push the image
 
 ```bash
@@ -147,6 +153,8 @@ Create `terraform.tfvars` (git-ignored, never commit this):
 mongodb_uri     = "mongodb+srv://<user>:<password>@<cluster-host>/franchiseDb?retryWrites=true&w=majority"
 container_image = "<account-id>.dkr.ecr.us-east-1.amazonaws.com/franchise-api:latest"
 ```
+
+Before the first `terraform init` here, set that bucket name as `bucket` in `terraform/environments/dev/backend.tf`: a backend block cannot use variables, so this edit is manual. Its `region` and `dynamodb_table` match the backend-setup defaults (`us-east-1` and `franchise-api-terraform-locks`); update them too if you changed `aws_region` or `lock_table_name`.
 
 ```bash
 terraform init
