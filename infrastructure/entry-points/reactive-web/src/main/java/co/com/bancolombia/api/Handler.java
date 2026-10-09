@@ -23,7 +23,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebInputException;
+import org.springframework.web.server.UnsupportedMediaTypeStatusException;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -297,6 +299,18 @@ public class Handler {
         if (error instanceof ServerWebInputException) {
             return ServerResponse.badRequest().bodyValue("Invalid request body");
         }
+        // Other framework rejections (e.g. 415 for a missing or non-JSON Content-Type) keep their
+        // own status. Must stay after ServerWebInputException, which is a subclass.
+        if (error instanceof ResponseStatusException statusError) {
+            return ServerResponse.status(statusError.getStatusCode()).bodyValue(clientErrorMessage(statusError));
+        }
         return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Unexpected error occurred");
+    }
+
+    // Never echo the exception text: it contains internal class names.
+    private static String clientErrorMessage(ResponseStatusException error) {
+        return error instanceof UnsupportedMediaTypeStatusException
+                ? "Unsupported media type, use application/json"
+                : "Request could not be processed";
     }
 }
