@@ -1,6 +1,6 @@
 # Nequi Franchise API — Project Context
 
-Technical challenge (TalentPool Pragma × Nequi): a reactive Franchise Management API.
+Reactive Franchise Management API (Spring WebFlux, hexagonal architecture, AWS + Terraform).
 Domain: Franchise → has many Branches → each has many Products (name + numeric stock).
 
 ## Architecture

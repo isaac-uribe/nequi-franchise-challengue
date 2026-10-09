@@ -1,7 +1,6 @@
 # Franchise Management API
 
-A reactive REST API for managing franchises, branches, and products, built with Spring WebFlux and hexagonal architecture (Clean Architecture), developed as part of Pragma's TalentPool technical challenge for Nequi.
-
+A reactive REST API for managing franchises, branches, and products, built with Spring WebFlux and hexagonal architecture (Clean Architecture) and deployed on AWS with Terraform.
 ## Overview
 
 The API models a three-level aggregate: a **Franchise** contains multiple **Branches**, and each Branch contains multiple **Products**. It supports creating franchises, adding/renaming branches and products, adjusting stock, removing products, and querying the top-stock product per branch within a franchise.
@@ -184,7 +183,7 @@ A few choices worth calling out, since they were deliberate trade-offs rather th
 - **MapStruct over a generic reflection-based mapper**: explicit, predictable mapping for a two-level nested aggregate.
 - **Trunk-based Git workflow**: direct commits to `main`, short-lived branches only for changes that could leave `main` temporarily broken.
 - **Single NAT Gateway** (not one per AZ): a deliberate cost/availability trade-off appropriate for this challenge's scope.
-- **HTTP-only ALB listener** (no HTTPS): out of scope for this challenge; a 443 listener with an ACM certificate would be the production equivalent.
+- **HTTP-only ALB listener** (no HTTPS): out of scope for this project; a 443 listener with an ACM certificate would be the production equivalent.
 
 ## Commit Convention
 
